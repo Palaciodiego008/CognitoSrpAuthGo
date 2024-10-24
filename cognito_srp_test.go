@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewCognitoSRP(t *testing.T) {
@@ -18,53 +20,33 @@ func TestNewCognitoSRP(t *testing.T) {
 	clientSecret := "testclientsecret"
 
 	csrp, err := NewCognitoSRP(username, password, poolId, clientId, &clientSecret)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	if csrp.username != username {
-		t.Errorf("expected username %s, got %s", username, csrp.username)
-	}
-	if csrp.password != password {
-		t.Errorf("expected password %s, got %s", password, csrp.password)
-	}
-	if csrp.poolId != poolId {
-		t.Errorf("expected poolId %s, got %s", poolId, csrp.poolId)
-	}
-	if csrp.clientId != clientId {
-		t.Errorf("expected clientId %s, got %s", clientId, csrp.clientId)
-	}
-	if csrp.clientSecret == nil || *csrp.clientSecret != clientSecret {
-		t.Errorf("expected clientSecret %s, got %v", clientSecret, csrp.clientSecret)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, username, csrp.username)
+	assert.Equal(t, password, csrp.password)
+	assert.Equal(t, poolId, csrp.poolId)
+	assert.Equal(t, clientId, csrp.clientId)
+	assert.NotNil(t, csrp.clientSecret)
+	assert.Equal(t, clientSecret, *csrp.clientSecret)
 }
 
 func TestGetUsername(t *testing.T) {
 	csrp := &CognitoSRP{username: "testuser"}
-	if csrp.GetUsername() != "testuser" {
-		t.Errorf("expected username testuser, got %s", csrp.GetUsername())
-	}
+	assert.Equal(t, "testuser", csrp.GetUsername())
 }
 
 func TestGetClientId(t *testing.T) {
 	csrp := &CognitoSRP{clientId: "testclientid"}
-	if csrp.GetClientId() != "testclientid" {
-		t.Errorf("expected clientId testclientid, got %s", csrp.GetClientId())
-	}
+	assert.Equal(t, "testclientid", csrp.GetClientId())
 }
 
 func TestGetUserPoolId(t *testing.T) {
 	csrp := &CognitoSRP{poolId: "us-east-1_testpool"}
-	if csrp.GetUserPoolId() != "us-east-1_testpool" {
-		t.Errorf("expected poolId us-east-1_testpool, got %s", csrp.GetUserPoolId())
-	}
+	assert.Equal(t, "us-east-1_testpool", csrp.GetUserPoolId())
 }
 
 func TestGetUserPoolName(t *testing.T) {
 	csrp := &CognitoSRP{poolName: "testpool"}
-	if csrp.GetUserPoolName() != "testpool" {
-		t.Errorf("expected poolName testpool, got %s", csrp.GetUserPoolName())
-	}
+	assert.Equal(t, "testpool", csrp.GetUserPoolName())
 }
 
 func TestGetAuthParams(t *testing.T) {
@@ -77,15 +59,9 @@ func TestGetAuthParams(t *testing.T) {
 	}
 
 	params := csrp.GetAuthParams()
-	if params["USERNAME"] != "testuser" {
-		t.Errorf("expected USERNAME testuser, got %s", params["USERNAME"])
-	}
-	if params["SRP_A"] != utils.BigToHex(big.NewInt(12345)) {
-		t.Errorf("expected SRP_A %s, got %s", utils.BigToHex(big.NewInt(12345)), params["SRP_A"])
-	}
-	if _, ok := params["SECRET_HASH"]; !ok {
-		t.Errorf("expected SECRET_HASH to be present")
-	}
+	assert.Equal(t, "testuser", params["USERNAME"])
+	assert.Equal(t, utils.BigToHex(big.NewInt(12345)), params["SRP_A"])
+	assert.Contains(t, params, "SECRET_HASH")
 }
 
 func TestGetSecretHash(t *testing.T) {
@@ -96,17 +72,13 @@ func TestGetSecretHash(t *testing.T) {
 	}
 
 	secretHash, err := csrp.GetSecretHash("testuser")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	assert.NoError(t, err)
 
 	expectedHash := hmac.New(sha256.New, []byte(clientSecret))
 	expectedHash.Write([]byte("testusertestclientid"))
 	expectedHashStr := base64.StdEncoding.EncodeToString(expectedHash.Sum(nil))
 
-	if secretHash != expectedHashStr {
-		t.Errorf("expected secret hash %s, got %s", expectedHashStr, secretHash)
-	}
+	assert.Equal(t, expectedHashStr, secretHash)
 }
 
 func TestPasswordVerifierChallenge(t *testing.T) {
@@ -134,23 +106,10 @@ func TestPasswordVerifierChallenge(t *testing.T) {
 
 	ts := time.Now()
 	response, err := csrp.PasswordVerifierChallenge(challengeParms, ts)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	if response["USERNAME"] != "testuser" {
-		t.Errorf("expected USERNAME testuser, got %s", response["USERNAME"])
-	}
-	if response["PASSWORD_CLAIM_SECRET_BLOCK"] != challengeParms["SECRET_BLOCK"] {
-		t.Errorf("expected PASSWORD_CLAIM_SECRET_BLOCK %s, got %s", challengeParms["SECRET_BLOCK"], response["PASSWORD_CLAIM_SECRET_BLOCK"])
-	}
-	if _, ok := response["PASSWORD_CLAIM_SIGNATURE"]; !ok {
-		t.Errorf("expected PASSWORD_CLAIM_SIGNATURE to be present")
-	}
-	if _, ok := response["TIMESTAMP"]; !ok {
-		t.Errorf("expected TIMESTAMP to be present")
-	}
-	if _, ok := response["SECRET_HASH"]; !ok {
-		t.Errorf("expected SECRET_HASH to be present")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "testuser", response["USERNAME"])
+	assert.Equal(t, challengeParms["SECRET_BLOCK"], response["PASSWORD_CLAIM_SECRET_BLOCK"])
+	assert.Contains(t, response, "PASSWORD_CLAIM_SIGNATURE")
+	assert.Contains(t, response, "TIMESTAMP")
+	assert.Contains(t, response, "SECRET_HASH")
 }
